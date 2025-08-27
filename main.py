@@ -194,7 +194,7 @@ class QuestionAsker:
             for i, question in enumerate(questions, 1):
                 self.logger.info(f"正在回答第{i}个问题: {question}")
                 try:
-                    answer = await self.qa_system.answer_question(question)
+                    answer = await self.ask_question(question)
                     qa_pairs.append({
                         "question": question,
                         "answer": answer
