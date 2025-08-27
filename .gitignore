@@ -1,0 +1,3 @@
+models/
+# 忽略 chroma_db 文件夹及其所有内容
+chroma_db/
