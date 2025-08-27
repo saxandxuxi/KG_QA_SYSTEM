@@ -241,13 +241,15 @@ class QuestionAsker:
                 print("\n\n程序被用户中断，再见！")
                 break
             except Exception as e:
-                print(f"处理问题时出现错误: {e}"
+                print(f"处理问题时出现错误: {e}")
+
 
 
 
 async def main():
     """
     主函数
+
     """
     try:
         # 创建提问系统实例
@@ -277,6 +279,7 @@ async def main():
 
     except Exception as e:
         print(f"程序运行出错: {e}")
+
 
 
 if __name__ == '__main__':
