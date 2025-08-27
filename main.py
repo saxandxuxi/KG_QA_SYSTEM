@@ -25,6 +25,8 @@ class QuestionAsker:
         self.config = Config()
         self.logger = Logger()
         self.qa_system = None
+        # 添加对话历史记录
+        self.conversation_history = []
 
     async def initialize(self):
         """
@@ -49,7 +51,7 @@ class QuestionAsker:
         except Exception as e:
             self.logger.error(f"系统初始化失败: {e}")
             raise
-    async def ask_question(self, question: str) -> str:
+    async def ask_question_without_memory(self, question: str) -> str:
         """
         提出问题并获取答案
 
@@ -70,36 +72,38 @@ class QuestionAsker:
             self.logger.error(f"回答问题时出错: {e}")
             return f"抱歉，回答问题时出现错误: {str(e)}"
 
-    async def interactive_qa(self):
+    async def ask_question(self, question: str) -> str:
         """
-        交互式问答模式
+        提出问题并获取答案
+
+        Args:
+            question (str): 要提出的问题
+
+        Returns:
+            str: 问题的答案
         """
-        print("欢迎使用问答系统！输入 'quit' 或 'exit' 退出程序。")
-        print("-" * 50)
+        if not self.qa_system:
+            raise RuntimeError("问答系统未初始化，请先调用initialize()方法")
 
-        while True:
-            try:
-                question = input("\n请输入您的问题: ").strip()
+        try:
+            self.logger.info(f"正在处理问题: {question}")
+            # 将当前问题添加到对话历史中
+            self.conversation_history.append({"role": "user", "content": question})
 
-                if question.lower() in ['quit', 'exit', '退出']:
-                    print("感谢使用，再见！")
-                    break
+            # 限制对话历史长度，只保留最近的10轮对话
+            if len(self.conversation_history) > 20:  # 10轮对话包含问答
+                self.conversation_history = self.conversation_history[-20:]
 
-                if not question:
-                    print("请输入有效问题。")
-                    continue
+            answer = await self.qa_system.answer_question_with_context(question, self.conversation_history)
 
-                print("正在思考中，请稍候...")
-                answer = await self.ask_question(question)
-                print(f"\n答案: {answer}")
+            # 将回答添加到对话历史中
+            self.conversation_history.append({"role": "assistant", "content": answer})
 
-            except KeyboardInterrupt:
-                print("\n\n程序被用户中断，再见！")
-                break
-            except Exception as e:
-                print(f"处理问题时出现错误: {e}")
+            return answer
+        except Exception as e:
+            self.logger.error(f"回答问题时出错: {e}")
+            return f"抱歉，回答问题时出现错误: {str(e)}"
 
-        # ... existing code ...
     async def generate_questions_from_context(self, num_questions: int = 3) -> List[str]:
         """
                     基于知识库内容自动生成问题
@@ -209,6 +213,35 @@ class QuestionAsker:
             self.logger.error(f"自动生成问答会话失败: {e}")
             return qa_pairs
 
+    async def interactive_qa(self):
+        """
+        交互式问答模式
+        """
+        print("欢迎使用问答系统！输入 'quit' 或 'exit' 退出程序。")
+        print("系统现在支持对话记忆功能，可以基于上下文理解您的问题。")
+        print("-" * 50)
+
+        while True:
+            try:
+                question = input("\n请输入您的问题: ").strip()
+
+                if question.lower() in ['quit', 'exit', '退出']:
+                    print("感谢使用，再见！")
+                    break
+
+                if not question:
+                    print("请输入有效问题。")
+                    continue
+
+                print("正在思考中，请稍候...")
+                answer = await self.ask_question(question)
+                print(f"\n答案: {answer}")
+
+            except KeyboardInterrupt:
+                print("\n\n程序被用户中断，再见！")
+                break
+            except Exception as e:
+                print(f"处理问题时出现错误: {e}"
 
 
 

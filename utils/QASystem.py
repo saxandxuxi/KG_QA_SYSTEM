@@ -531,6 +531,59 @@ class QASystem:
             self.logger.info(f"回答问题时出现错误: {e}")
             return "抱歉，我在回答您的问题时遇到了一些问题。"
 
+    async def answer_question_with_context(self, question: str, conversation_history: list) -> str:
+        """
+        回答用户问题的主方法，结合向量库、知识图谱和对话上下文进行检索
+
+        Args:
+            question (str): 用户问题
+            conversation_history (list): 对话历史记录
+
+        Returns:
+            str: 最终答案
+        """
+        self.logger.info(f"收到用户问题: {question}")
+
+        try:
+            # 提取关键词列表
+            keywords = self._extract_keywords(question)
+            self.logger.info(f"提取的关键词列表: {keywords}")
+
+            # 分解问题获取子问题
+            sub_questions = await self._decompose_question(question)
+            self.logger.info(f"分解后的问题: {sub_questions}")
+
+            # 1.针对关键词列表中的关键词，并行查询向量数据库和知识图谱（使用多种检索方式）
+            vector_docs = self.query_vector_database(keywords, top_k=3, threshold=0.7)
+            kg_results = await self.query_knowledge_graph_multi_methods(keywords,
+                                                                        limit=10) if self.kg_retriever else {
+                "edges": [],
+                "nodes": []}
+            # 2.针对子问题，进行检索并回答，然后生成问题答案对的上下文
+            sub_answers_context, sub_questions = await self._retrieve_and_rag(sub_questions)
+            sub_answers_context = self._format_qa_pairs(sub_questions, sub_answers_context)
+
+            # 合并检索结果作为上下文
+            keywords_context = self._merge_contexts(vector_docs, kg_results)
+
+            combined_context = sub_answers_context + keywords_context
+
+            # 添加对话历史到上下文中
+            if len(conversation_history) > 1:  # 除了当前问题外还有历史对话
+                history_context = "\n\n对话历史:\n"
+                for i, msg in enumerate(conversation_history[-6:-1]):  # 只取最近3轮对话
+                    role = "用户" if msg["role"] == "user" else "助手"
+                    history_context += f"{role}: {msg['content']}\n"
+                combined_context += history_context
+
+            # 生成最终答案
+            answer = await self.generate_answer(question, combined_context)
+            return answer
+
+        except Exception as e:
+            self.logger.info(f"回答问题时出现错误: {e}")
+            return "抱歉，我在回答您的问题时遇到了一些问题。"
+
 
 # 完整的测试示例（需要提供真实的依赖项）
 if __name__ == "__main__":
